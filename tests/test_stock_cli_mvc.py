@@ -102,7 +102,23 @@ with tempfile.TemporaryDirectory(prefix='x264-mvc-cli-') as work:
             assert decoded.returncode == 0, decoded.stderr[-500:]
             assert decoded.stdout.count(b'FRAME\n') == 12, 'prediction switches changed decoded frame count'
 
-    invoke('--mvc-no-inter-i','-o',d/'bad3.264',sbs,ok=False)
+    # Different per-eye rate controls must preserve MVC NAL structure and 2D base bytes.
+    baseline_base = d/'baseline-base.264'
+    baseline_dep = d/'baseline-dependent.mvc'
+    tuned_base = d/'tuned-base.264'
+    tuned_dep = d/'tuned-dependent.mvc'
+    common = ['--mvc','--preset','veryfast','--bitrate','400','--vbv-maxrate','600',
+              '--vbv-bufsize','800','--frames','12','--keyint','6','--bframes','2']
+    invoke(*common,'-o',baseline_base,'--mvc-dependent',baseline_dep,sbs)
+    invoke(*common,'--mvc-dependent-bitrate','120','--mvc-dependent-vbv-maxrate','240',
+           '--mvc-dependent-vbv-bufsize','320','-o',tuned_base,'--mvc-dependent',tuned_dep,sbs)
+    assert tuned_base.read_bytes() == baseline_base.read_bytes(), 'dependent RC altered AVC base'
+    assert tuned_dep.read_bytes() != baseline_dep.read_bytes(), 'dependent rate overrides ignored'
+    for flag in ('--mvc-dependent-bitrate','--mvc-dependent-vbv-maxrate','--mvc-dependent-vbv-bufsize'):
+        invoke('--mvc',flag,'0','-o',d/'bad-rate.264',sbs,ok=False)
+        invoke('--mvc',flag,'bad','-o',d/'bad-rate.264',sbs,ok=False)
+        invoke(flag,'100','-o',d/'bad-2d.264',sbs,ok=False)
+        invoke('--mvc-no-inter-i','-o',d/'bad3.264',sbs,ok=False)
     invoke('--mvc','--mvc-layout','bogus','-o',d/'bad.264',sbs,ok=False)
     invoke('--mvc','--mvc-layout','separate','-o',d/'bad2.264',left,ok=False)
     invoke('--mvc','--mvc-layout','sbs','--mvc-dependent',d/'bad.mvc',
