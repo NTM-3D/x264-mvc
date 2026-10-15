@@ -9,7 +9,7 @@
         let pkgs = import nixpkgs { inherit system; }; in
         pkgs.stdenv.mkDerivation {
           pname = "x264-mvc";
-          version = "0.1.0-test9-github-docs";
+          version = "0.1.0-test10-mvc-rate-control";
           src = self;
           nativeBuildInputs = with pkgs; [ pkg-config python3 ]
             ++ lib.optionals stdenv.hostPlatform.isx86_64 [ nasm ];

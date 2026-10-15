@@ -10,10 +10,22 @@
 typedef struct { x264_t *encoder; x264_param_t param; } mvc_view_t;
 
 static int mvc_open( mvc_view_t *view, const x264_param_t *source, unsigned mask,
-                     int dependent, int width, int height )
+                     int dependent, const x264_mvc_cli_opts_t *opt, int width, int height )
 {
     view->param = *source;
     x264_param_t *p = &view->param;
+    if( dependent )
+    {
+        if( opt->dependent_bitrate )
+        {
+            p->rc.i_rc_method = X264_RC_ABR;
+            p->rc.i_bitrate = opt->dependent_bitrate;
+        }
+        if( opt->dependent_vbv_maxrate )
+            p->rc.i_vbv_max_bitrate = opt->dependent_vbv_maxrate;
+        if( opt->dependent_vbv_bufsize )
+            p->rc.i_vbv_buffer_size = opt->dependent_vbv_bufsize;
+    }
     p->i_width = width;
     p->i_height = height;
     p->i_csp = X264_CSP_I420;
@@ -131,8 +143,8 @@ int x264_mvc_cli_encode( const x264_param_t *param, const x264_mvc_cli_opts_t *o
             fopen( opt->dependent_filename, "wb" );
         if( !dependent_output || dependent_output == output ) goto done;
     }
-    if( mvc_open( &base, &settings, opt->prediction_mask, 0, w, h ) ||
-        mvc_open( &dependent, &settings, opt->prediction_mask, 1, w, h ) ) goto done;
+    if( mvc_open( &base, &settings, opt->prediction_mask, 0, opt, w, h ) ||
+        mvc_open( &dependent, &settings, opt->prediction_mask, 1, opt, w, h ) ) goto done;
     if( x264_picture_alloc( &src, X264_CSP_I420, srcw, srch ) ) goto done;
     allocated = 1;
     if( x264_picture_alloc( &src_right, X264_CSP_I420, srcw, srch ) ) goto done;

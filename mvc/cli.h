@@ -16,6 +16,10 @@ typedef struct {
     const char *output_filename;
     int user_fps;
     int requested_frames;
+    /* 0 inherits the corresponding stock x264 rate-control parameter. */
+    int dependent_bitrate;
+    int dependent_vbv_maxrate;
+    int dependent_vbv_bufsize;
 } x264_mvc_cli_opts_t;
 /* Returns 0 (picture read), 1 (EOF), -1 (read error). */
 typedef int (*x264_mvc_read_picture)( void *opaque, x264_picture_t *picture, int64_t frame, int right );

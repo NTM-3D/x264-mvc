@@ -44,6 +44,7 @@
 #endif
 
 #include <signal.h>
+#include <errno.h>
 #include <getopt.h>
 #include "input/input.h"
 #include "output/output.h"
@@ -989,6 +990,9 @@ static void help( x264_param_t *defaults, int longhelp )
     H0( "      --mvc-layout <sbs|tb|frames|separate>   Stereo input arrangement (default sbs)\n" );
     H0( "      --mvc-right <path>         Second eye for --mvc-layout separate\n" );
     H0( "      --mvc-dependent <path>     Write dependent MVC NALs separately\n" );
+    H0( "      --mvc-dependent-bitrate <kbps>      Dependent-view ABR target (default: base target)\n" );
+    H0( "      --mvc-dependent-vbv-maxrate <kbps>  Dependent-view VBV peak (default: base peak)\n" );
+    H0( "      --mvc-dependent-vbv-bufsize <kbit>  Dependent-view VBV buffer (default: base buffer)\n" );
     H0( "      --mvc-no-inter            Disable cross-view prediction for all picture types\n" );
     H0( "      --mvc-inter               Enable cross-view prediction for all types (default)\n" );
     H0( "      --mvc-no-inter-i/p/b      Disable I, P, or B cross-view prediction individually\n" );
@@ -1034,6 +1038,9 @@ typedef enum
     OPT_MVC_LAYOUT,
     OPT_MVC_RIGHT,
     OPT_MVC_DEPENDENT,
+    OPT_MVC_DEPENDENT_BITRATE,
+    OPT_MVC_DEPENDENT_VBV_MAXRATE,
+    OPT_MVC_DEPENDENT_VBV_BUFSIZE,
     OPT_MVC_INTER,
     OPT_MVC_NO_INTER,
     OPT_MVC_INTER_I,
@@ -1051,6 +1058,9 @@ static struct option long_options[] =
     { "mvc-layout",           required_argument, NULL, OPT_MVC_LAYOUT },
     { "mvc-right",            required_argument, NULL, OPT_MVC_RIGHT },
     { "mvc-dependent",        required_argument, NULL, OPT_MVC_DEPENDENT },
+    { "mvc-dependent-bitrate", required_argument, NULL, OPT_MVC_DEPENDENT_BITRATE },
+    { "mvc-dependent-vbv-maxrate", required_argument, NULL, OPT_MVC_DEPENDENT_VBV_MAXRATE },
+    { "mvc-dependent-vbv-bufsize", required_argument, NULL, OPT_MVC_DEPENDENT_VBV_BUFSIZE },
     { "mvc-inter",            no_argument,       NULL, OPT_MVC_INTER },
     { "mvc-no-inter",         no_argument,       NULL, OPT_MVC_NO_INTER },
     { "mvc-inter-i",          no_argument,       NULL, OPT_MVC_INTER_I },
@@ -1530,6 +1540,22 @@ static int parse( int argc, char **argv, x264_param_t *param, cli_opt_t *opt )
                 break;
             case OPT_MVC_RIGHT: b_mvc_option = 1; opt->mvc.right_filename = optarg; break;
             case OPT_MVC_DEPENDENT: b_mvc_option = 1; opt->mvc.dependent_filename = optarg; break;
+            case OPT_MVC_DEPENDENT_BITRATE:
+            case OPT_MVC_DEPENDENT_VBV_MAXRATE:
+            case OPT_MVC_DEPENDENT_VBV_BUFSIZE:
+            {
+                char *end = NULL;
+                long value;
+                errno = 0;
+                value = strtol( optarg, &end, 10 );
+                FAIL_IF_ERROR( errno || !optarg[0] || *end || value < 1 || value > 1000000,
+                               "invalid positive MVC rate-control setting `%s'\n", optarg );
+                b_mvc_option = 1;
+                if( c == OPT_MVC_DEPENDENT_BITRATE ) opt->mvc.dependent_bitrate = value;
+                else if( c == OPT_MVC_DEPENDENT_VBV_MAXRATE ) opt->mvc.dependent_vbv_maxrate = value;
+                else opt->mvc.dependent_vbv_bufsize = value;
+                break;
+            }
             case OPT_MVC_INTER: b_mvc_option = 1; opt->mvc.prediction_mask = 7; break;
             case OPT_MVC_NO_INTER: b_mvc_option = 1; opt->mvc.prediction_mask = 0; break;
             case OPT_MVC_INTER_I: b_mvc_option = 1; opt->mvc.prediction_mask |= 1; break;
