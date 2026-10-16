@@ -7,7 +7,7 @@ x264-MVC is a fork of [x264](https://code.videolan.org/videolan/x264) that adds 
 The goal is a maintainable, upstream-friendly extension rather than a separate MVC encoder with its own command-line interface. Changes specific to stereo encoding are kept in the `mvc/` directory where possible.
 
 > [!WARNING]
-> **Experimental software.** MVC streams have been exercised with an independent software decoder, but full MVC conformance, Nix/NASM builds, and physical Blu-ray 3D hardware compatibility have **not** been verified. Do not assume generated streams are compliant Blu-ray 3D assets without further validation.
+> **Experimental software.** MVC streams have been exercised with an independent software decoder and on a Sony UBP-X700 Blu-ray player, but there is no guarantee that the encoded stream is 100% spec-compliant or that it will play on all players.
 
 ## Features
 
