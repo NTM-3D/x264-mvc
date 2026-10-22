@@ -1,0 +1,63 @@
+# Build outputs
+*.o
+*.obj
+*.d
+*.a
+*.lib
+*.so
+*.so.*
+*.dll
+*.dylib
+*.exp
+*.pdb
+*.gcda
+*.gcno
+*.exe
+*.res
+x264.pc
+x264_config.h
+common/oclobj.h
+config.h
+common/oclobj.h
+config.mak
+config.log
+conftest*
+.depend
+.gdb_history
+/result
+/result-*
+
+# Encoder output, test media and logs
+*.264
+*.h264
+*.mvc
+*.iso
+*.m2ts
+*.mp4
+*.mkv
+*.mov
+*.avi
+*.yuv
+*.log
+*.stats
+*.stats.mbtree
+*.meta
+tmp_*/
+mvc_*/
+/tsmuxer/
+/downloaded-tools/
+tsMuxeR.exe
+
+# Local scratch
+comparison_report.txt
+windows_fixes.*
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+.DS_Store
+
+# Local planning notes
+PLAN.md
