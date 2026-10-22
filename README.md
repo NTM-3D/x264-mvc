@@ -1,3 +1,65 @@
+# x264-MVC (NTM-3D fork)
+
+## Changes in the NTM-3D fork
+
+This is a fork of [blenheimears/x264-mvc](https://github.com/blenheimears/x264-mvc) with Windows-focused fixes and a ready-to-use encoding script for turning ordinary 3D video files into Blu-ray 3D (MVC) streams or ISOs.
+
+- **Windows / libavformat input fix:** non-I420 sources (e.g. NV12 from lavf) are converted to I420 and 4-plane pictures are normalized, so MVC encoding works on Windows builds.
+- **Computed MVC `level_idc`** derived from the stream parameters.
+- **Combined two-view rate control:** `--bitrate`, `--vbv-maxrate` and `--vbv-bufsize` describe the whole stereo stream (`--mvc-combined-bitrate`, `--mvc-combined-vbv-maxrate` and `--mvc-combined-vbv-bufsize` are explicit aliases). Both views share one CRF that is updated after every access unit, so the view that needs more bits gets them; there is no fixed per-view split. `--crf` together with a combined VBV gives constant quality with a hard combined ceiling, which is what `encode-mvc.ps1` uses. A combined VBV bucket is fed with the real size of both views; when it runs low the CRF is raised immediately, and the per-view VBV limits are divided by demand so their sum never exceeds the combined limits. `--mvc-dependent-crf-offset` biases the dependent view, `--mvc-rc-trace <csv>` writes per-access-unit sizes, CRF, view share and VBV fill, and a summary of total and per-view bitrate and minimum VBV fill is printed at the end.
+- **MVC two-pass:** `--pass 1` / `--pass 2` with `--stats` keep separate statistics per view (`<stats>.base`, `<stats>.dep`) plus the first-pass bit totals (`<stats>.mvc`); pass 2 splits the bitrate between the views by what each needed in pass 1.
+- **Random access:** SPS, subset SPS and PPS are repeated at every IDR so players can seek.
+- **Cleaner dependent view:** the dependent view carries no access unit delimiter or SEI of its own.
+- **`encode-mvc.ps1`**: one-command 3D file -> MVC / Blu-ray 3D ISO (see below)..
+
+### `encode-mvc.ps1`
+
+PowerShell script that pipes `ffmpeg` into `x264 --mvc` and optionally muxes a Blu-ray 3D ISO with `tsMuxeR` (original audio/subtitle tracks are carried over).
+
+```powershell
+.\encode-mvc.ps1 "Movie.FSBS.mkv"                      # -> Movie.FSBS.iso next to the input
+.\encode-mvc.ps1 "Movie_htab.mp4" -Output mvc          # raw Annex B MVC stream only
+.\encode-mvc.ps1 "clip.mp4" -Format ftab -EyeHeight 720 -Crf 17 -MaxBitrate 40000
+```
+
+**Format detection from the file name** (case-insensitive, same markers as the NTM-3D [mpv-android](https://github.com/NTM-3D/mpv-android) fork; a marker must be separated from other text by `.`, `_`, `-`, space etc.):
+
+| Format | Recognized markers |
+| --- | --- |
+| Half SBS | `hsbs`, `half-sbs`, `half_sbs`, `sbs-half`, `sbs_half`, `half_2x1` |
+| Half TAB | `htab`, `half-tab`, `half_tab`, `tab-half`, `tab_half`, `half_1x2`, `half-ou`, `half_ou`, `half-overunder` |
+| Full SBS | `fsbs`, `full-sbs`, `full_sbs`, `sbs-full`, `sbs_full`, `2x1`, `full_2x1` |
+| Full TAB | `ftab`, `full-tab`, `full_tab`, `tab-full`, `tab_full`, `1x2`, `full_1x2`, `full-ou`, `full_ou`, `full-overunder` |
+| Generic (Half) | `3d`, `sbs` -> Half SBS; `tab`, `ou`, `overunder`, `over-under`, `over_under`, `topbottom`, `top-bottom`, `top_bottom`, `tb` -> Half TAB |
+
+If nothing is found the script stops and asks for `-Format fsbs|hsbs|ftab|htab`, which also overrides detection.
+
+**Any aspect ratio:** the script probes the input with `ffprobe`, splits it into the two eyes, computes each eye's display aspect ratio (respecting full/half packing and SAR), scales it to fit the Blu-ray eye frame (1920x1080, or 1280x720 with `-EyeHeight 720`) and pads with black bars. 16:9, 2.39:1, 4:3 etc. are not stretched.
+
+**Frame rate:** `-Fps auto` (default) keeps 24 fps sources at 24 and otherwise uses 24000/1001 (Blu-ray 3D 1080p); at `-EyeHeight 720`, 50 / 59.94 fps sources are kept. Can be set explicitly to `24`, `24000/1001`, `50` or `60000/1001`.
+
+| Parameter | Default | Description |
+| --- | --- | --- |
+| `-Format` | from file name | `fsbs`, `hsbs`, `ftab`, `htab` (`frames` for frame-sequential input) |
+| `-Output` | `iso` | `iso` (needs tsMuxeR) or `mvc` |
+| `-OutDir` | input's folder | Output directory |
+| `-EyeHeight` | `1080` | Per-eye frame: 1080 (1920x1080) or 720 (1280x720) |
+| `-Fps` | `auto` | Output frame rate |
+| `-Crf` | `18` | Constant quality shared by both views (lower = better) |
+| `-MaxBitrate` | `48000` | Combined peak rate in kbps (VBV max rate and tsMuxeR limit) |
+| `-BufSize` | `24000` | Combined VBV buffer in kbit |
+| `-TargetBitrate` | off | Average-bitrate mode (kbps) instead of CRF |
+| `-Preset` | `slower` | x264 preset |
+| `-X264`, `-FfmpegDir`, `-TsMuxer` | auto | Tool locations; otherwise searched in the script folder and `PATH` |
+| `-TwoPass` | off | Two-pass encode (requires `-TargetBitrate`) |
+| `-KeepTemp` | off | Keep temporary files and logs (always kept on failure; the error shows the log tails) |
+
+Missing tools are downloaded on first use from the release pages of [this repo](https://github.com/NTM-3D/x264-mvc/releases) (`x264.exe`), [BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds) (`ffmpeg`, `ffprobe`) and [teaching-droid/tsMuxer](https://github.com/teaching-droid/tsMuxer) (`tsMuxeR.exe`) into a `downloaded-tools` folder next to the script (delete it to clean up); the SHA-256 of every download is verified.
+
+Audio and subtitle tracks are carried over. Audio codecs a Blu-ray player does not accept (AAC, MP3, Opus, ...) are converted to AC-3 at 640 kbps.
+
+---
+
 # x264-MVC
 
 **Experimental stereoscopic H.264/MVC encoding in the stock x264 command-line encoder.**
@@ -133,7 +195,7 @@ For additional encoder options, run `x264 --fullhelp`. The normal 2D x264 option
 - MVC output is **raw Annex B** only; disc structures, transport-stream multiplexing, and Blu-ray 3D authoring are outside this program's scope.
 - To keep eye GOPs synchronized, MVC mode disables adaptive B-frame placement, scenecut insertion, and open GOP. The normal 2D path is not subject to these MVC restrictions.
 - Inter-view references currently require slice-based threading and can change encode throughput. Per-view decoded-picture-buffer limits also apply.
-- MVC two-pass rate control, `--qpfile`, pulldown, VFR, interlaced encoding, and timecode output are not currently supported in MVC mode.
+- Joint (cross-view) two-pass rate control, `--qpfile`, pulldown, VFR, interlaced encoding, and timecode output are not currently supported in MVC mode.
 - Dependent-view I/IDR pictures using inter-view prediction are coded through MVC P-slice syntax with a reconstructed base-view reference. **Compatibility with consumer hardware remains unverified.**
 - Software decoding tests and a small number of bit-identical 2D comparisons do not establish comprehensive H.264/MVC conformance or 100% CLI equivalence across every build and option combination.
 
